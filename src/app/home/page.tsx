@@ -20,12 +20,12 @@ const GlowMotion = ({ isDark }: { isDark: boolean }) => {
   const [orientation, setOrientation] = useState({ gamma: 0, beta: 0 });
 
   useEffect(() => {
-    function handleOrientation(event: DeviceOrientationEvent) {
+    const handleOrientation = (event: DeviceOrientationEvent) => {
       setOrientation({
-        gamma: event.gamma || 0,
-        beta: event.beta || 0,
+        gamma: event.gamma ?? 0,
+        beta: event.beta ?? 0,
       });
-    }
+    };
 
     window.addEventListener('deviceorientation', handleOrientation);
     return () => window.removeEventListener('deviceorientation', handleOrientation);
@@ -56,80 +56,55 @@ const GlowMotion = ({ isDark }: { isDark: boolean }) => {
 const MainPage = () => {
   const router = useRouter();
 
-  // حالة الثيم
   const [isDark, setIsDark] = useState(true);
-
-  // تايب رايتر
   const typewriterTexts = ['AI Chat', 'AI Image', 'AI Upscale Image', 'AI Code', 'AI Character', 'AI Voice'];
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const [currentText, setCurrentText] = useState('');
-const [isDeleting, setIsDeleting] = useState(false); // خليها false بالبداية
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showCursor, setShowCursor] = useState(true);
 
-  // تحية واسم المستخدم
   const [user, setUser] = useState<User | null>(null);
   const [greeting, setGreeting] = useState('');
-
   const [drawerOpen, setDrawerOpen] = useState(false);
 
- useEffect(() => {
-  let typingTimeout: NodeJS.Timeout;
-
-  const fullText = typewriterTexts[currentTextIndex];
-
-  if (!isDeleting && currentText.length < fullText.length) {
-    // سرعة الكتابة أسرع
-    typingTimeout = setTimeout(() => {
-      setCurrentText(fullText.slice(0, currentText.length + 1));
-    }, 80); // من 150 إلى 80 مللي ثانية
-  } else if (isDeleting && currentText.length > 0) {
-    // سرعة الحذف أسرع
-    typingTimeout = setTimeout(() => {
-      setCurrentText(fullText.slice(0, currentText.length - 1));
-    }, 50); // من 100 إلى 50 مللي ثانية
-  } else {
-    // فترة التوقف بين النصوص (بلاش تكون طويلة)
-    typingTimeout = setTimeout(() => {
-      if (!isDeleting) {
-        setIsDeleting(true);
-      } else {
-        setIsDeleting(false);
-        setCurrentTextIndex((prev) => (prev + 1) % typewriterTexts.length);
-      }
-    }, 700); // من 1000 إلى 700 مللي ثانية
-  }
-
-  return () => clearTimeout(typingTimeout);
-}, [currentText, isDeleting, currentTextIndex, typewriterTexts]);
-
-
-
-  // Cursor blink effect
   useEffect(() => {
-    const cursorInterval = setInterval(() => {
-      setShowCursor((prev) => !prev);
-    }, 500);
+    const typingTimeout = setTimeout(() => {
+      const fullText = typewriterTexts[currentTextIndex];
+
+      if (!isDeleting && currentText.length < fullText.length) {
+        setCurrentText(fullText.slice(0, currentText.length + 1));
+      } else if (isDeleting && currentText.length > 0) {
+        setCurrentText(fullText.slice(0, currentText.length - 1));
+      } else {
+        if (!isDeleting) setIsDeleting(true);
+        else {
+          setIsDeleting(false);
+          setCurrentTextIndex((prev) => (prev + 1) % typewriterTexts.length);
+        }
+      }
+    }, isDeleting ? 50 : 80);
+
+    return () => clearTimeout(typingTimeout);
+  }, [currentText, isDeleting, currentTextIndex, typewriterTexts]);
+
+  useEffect(() => {
+    const cursorInterval = setInterval(() => setShowCursor((prev) => !prev), 500);
     return () => clearInterval(cursorInterval);
   }, []);
 
-  // تحية حسب الوقت
   useEffect(() => {
     const auth = getAuth(app);
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
-    });
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => setUser(firebaseUser));
 
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Good Morning');
     else if (hour < 18) setGreeting('Good Afternoon');
     else setGreeting('Good Evening');
 
-    return () => unsubscribe();
+    return unsubscribe;
   }, []);
 
-  const handleDrawerToggle = () => {
-    setDrawerOpen(!drawerOpen);
-  };
+  const handleDrawerToggle = () => setDrawerOpen((prev) => !prev);
 
   const handleSignOut = async () => {
     const auth = getAuth(app);
@@ -152,11 +127,9 @@ const [isDeleting, setIsDeleting] = useState(false); // خليها false بال�
 
   return (
     <div className={`min-h-screen w-full relative ${themeClasses.background}`}>
-      {/* Hero Section */}
       <div className="relative overflow-hidden">
         <GlowMotion isDark={isDark} />
 
-        {/* Navigation */}
         <nav className="absolute top-0 w-full z-50 px-6 py-4">
           <div className="flex justify-between items-center max-w-7xl mx-auto">
             <div className="flex items-center gap-2">
@@ -167,13 +140,13 @@ const [isDeleting, setIsDeleting] = useState(false); // خليها false بال�
               onClick={handleDrawerToggle}
               className={`p-2 rounded-full ${themeClasses.card} hover:scale-105 transition-transform`}
               aria-label="Account Menu"
+              type="button"
             >
               <UserIcon size={20} className={themeClasses.text} />
             </button>
           </div>
         </nav>
 
-        {/* Hero Content */}
         <div className="relative pt-32 pb-20 px-6">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
@@ -184,11 +157,11 @@ const [isDeleting, setIsDeleting] = useState(false); // خليها false بال�
               </h1>
               {user && (
                 <p className={`text-2xl font-medium mb-4 ${themeClasses.accent}`}>
-                  {greeting}, {user.displayName || 'User'}!
+                  {greeting}, {user.displayName ?? 'User'}!
                 </p>
               )}
               <p className={`text-xl ${themeClasses.subtitle} max-w-2xl mx-auto`}>
-               Unlock{' '}
+                Unlock{' '}
                 <span className={`font-semibold ${themeClasses.accent}`}>
                   {currentText}
                   <span className={`${showCursor ? 'opacity-100' : 'opacity-0'}`}>|</span>
@@ -196,7 +169,6 @@ const [isDeleting, setIsDeleting] = useState(false); // خليها false بال�
               </p>
             </div>
 
-            {/* Features Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
               {[
                 {
@@ -232,10 +204,17 @@ const [isDeleting, setIsDeleting] = useState(false); // خليها false بال�
               ].map(({ title, description, path, icon }) => (
                 <div
                   key={title}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => path !== '#' && router.push(path)}
+                  onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && path !== '#') router.push(path);
+                  }}
                   className={`${themeClasses.card} p-6 rounded-2xl cursor-pointer group hover:scale-[1.02] transition-all duration-300`}
                 >
-                  <div className="text-3xl mb-4">{icon}</div>
+                  <div className="text-3xl mb-4" aria-hidden="true">
+                    {icon}
+                  </div>
                   <h3
                     className={`text-xl font-semibold mb-2 ${themeClasses.text} group-hover:text-purple-500 transition-colors`}
                   >
@@ -249,7 +228,6 @@ const [isDeleting, setIsDeleting] = useState(false); // خليها false بال�
         </div>
       </div>
 
-      {/* Drawer */}
       <div
         className={`fixed top-0 right-0 h-full w-64 bg-white dark:bg-gray-900 shadow-xl z-50 transform transition-transform duration-300 ${
           drawerOpen ? 'translate-x-0' : 'translate-x-full'
@@ -261,6 +239,7 @@ const [isDeleting, setIsDeleting] = useState(false); // خليها false بال�
             onClick={() => setDrawerOpen(false)}
             aria-label="Close Drawer"
             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+            type="button"
           >
             <X size={22} />
           </button>
@@ -269,10 +248,11 @@ const [isDeleting, setIsDeleting] = useState(false); // خليها false بال�
         <div className="p-4 flex flex-col gap-4">
           {user ? (
             <>
-              <p className="text-gray-800 dark:text-gray-200 font-semibold">{user.displayName || 'User'}</p>
+              <p className="text-gray-800 dark:text-gray-200 font-semibold">{user.displayName ?? 'User'}</p>
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+                type="button"
               >
                 <LogOut size={18} /> Sign Out
               </button>
@@ -282,6 +262,7 @@ const [isDeleting, setIsDeleting] = useState(false); // خليها false بال�
                   setDrawerOpen(false);
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition"
+                type="button"
               >
                 <UserIcon size={18} /> Profile
               </button>
@@ -293,6 +274,7 @@ const [isDeleting, setIsDeleting] = useState(false); // خليها false بال�
                 setDrawerOpen(false);
               }}
               className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition"
+              type="button"
             >
               Login
             </button>
@@ -300,6 +282,7 @@ const [isDeleting, setIsDeleting] = useState(false); // خليها false بال�
           <button
             onClick={() => setIsDark(!isDark)}
             className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+            type="button"
           >
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
             {isDark ? 'Light Mode' : 'Dark Mode'}

@@ -1,12 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import app from '../../firebaseConfig';
-import { Sun, Moon, ArrowRight, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, FormEvent } from 'react';
+import { 
+    getAuth, 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    GoogleAuthProvider, 
+    signInWithPopup,
+    AuthError
+} from 'firebase/auth';
+import { Sun, Moon, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import app from '../../firebaseConfig';
 
-// نوع كرات الحركة العائمة
+// Type definition for the floating balls animation
 type FloatingBall = {
   id: number;
   x: number;
@@ -17,13 +24,30 @@ type FloatingBall = {
   opacity: number;
 };
 
+// Generates the initial set of floating balls
+const createInitialBalls = (): FloatingBall[] => {
+    return Array.from({ length: 8 }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        size: Math.random() * 6 + 3,
+        opacity: Math.random() * 0.4 + 0.1,
+    }));
+};
+
 const AuthPage = () => {
   const router = useRouter();
   const [isDark, setIsDark] = useState(true);
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const auth = getAuth(app);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Memoize the auth instance to prevent re-initialization on re-renders
+  const auth = useMemo(() => getAuth(app), []);
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -31,24 +55,17 @@ const AuthPage = () => {
     confirmPassword: ''
   });
 
-  // كرات عائمة
+  // State for the floating balls animation
   const [balls, setBalls] = useState<FloatingBall[]>([]);
 
+  // Initialize balls animation only once
   useEffect(() => {
-    const initialBalls: FloatingBall[] = Array.from({ length: 8 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      vx: (Math.random() - 0.5) * 0.3,
-      vy: (Math.random() - 0.5) * 0.3,
-      size: Math.random() * 6 + 3,
-      opacity: Math.random() * 0.4 + 0.1,
-    }));
-    setBalls(initialBalls);
+    setBalls(createInitialBalls());
   }, []);
 
+  // Effect for running the floating balls animation
   useEffect(() => {
-    const interval = setInterval(() => {
+    const animationInterval = setInterval(() => {
       setBalls(prevBalls =>
         prevBalls.map(ball => ({
           ...ball,
@@ -57,58 +74,76 @@ const AuthPage = () => {
         }))
       );
     }, 50);
-    return () => clearInterval(interval);
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(animationInterval);
+  }, []); // Empty dependency array is correct here because we use a callback in setBalls
+
+  const toggleTheme = useCallback(() => {
+    setIsDark(prev => !prev);
   }, []);
 
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [name]: value
     }));
-  };
+  }, []);
+  
+  // Resets form and error when switching between Login and Sign Up
+  const handleAuthModeChange = useCallback((mode: boolean) => {
+    setIsLogin(mode);
+    setError(null);
+    setFormData({ email: '', password: '', name: '', confirmPassword: '' });
+  }, []);
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleEmailAuth = useCallback(async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
+
+    const { email, password, confirmPassword } = formData;
+
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, formData.email, formData.password);
+        await signInWithEmailAndPassword(auth, email, password);
       } else {
-        if (formData.password !== formData.confirmPassword) {
-          alert('Passwords do not match!');
+        if (password !== confirmPassword) {
+          setError('Passwords do not match!');
           setIsLoading(false);
           return;
         }
-        await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        await createUserWithEmailAndPassword(auth, email, password);
       }
       router.push('/home');
-    } catch (error: any) {
-      console.error('Authentication error:', error.message);
-      alert(`Authentication failed: ${error.message}`);
+    } catch (err: unknown) {
+      const authError = err as AuthError;
+      console.error('Authentication error:', authError.message);
+      setError(authError.message || 'An unexpected error occurred.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [auth, formData, isLogin, router]);
 
-  const handleGoogleAuth = async () => {
+  const handleGoogleAuth = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       router.push('/home');
-    } catch (error: any) {
-      console.error('Google authentication error:', error.message);
-      alert(`Google authentication failed: ${error.message}`);
+    } catch (err: unknown) {
+      const authError = err as AuthError;
+      console.error('Google authentication error:', authError.message);
+      setError(authError.message || 'An unexpected error occurred.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [auth, router]);
 
-  const themeClasses = {
+  // Memoize theme classes to avoid recalculating on every render
+  const themeClasses = useMemo(() => ({
     background: isDark 
       ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-purple-900' 
       : 'bg-gradient-to-br from-gray-50 via-white to-purple-50',
@@ -132,10 +167,11 @@ const AuthPage = () => {
     input: isDark
       ? 'bg-gray-700/50 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500'
       : 'bg-white/50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500',
-  };
+  }), [isDark]);
 
   return (
-<div className={`min-h-screen w-full relative transition-all duration-700 ease-in-out ${themeClasses.background} overflow-auto`}>      {/* Animated Grid Background */}
+    <div className={`min-h-screen w-full relative transition-all duration-700 ease-in-out ${themeClasses.background} overflow-auto`}>
+      {/* Animated Grid Background */}
       <div 
         className={`absolute inset-0 transition-opacity duration-700 ${themeClasses.grid}`}
         style={{
@@ -204,42 +240,23 @@ const AuthPage = () => {
 
             {/* Auth Toggle */}
             <div className="relative flex mb-6 rounded-lg w-full bg-gray-200/20 dark:bg-gray-700/50 p-1">
-              {/* Animated Background Slider */}
               <div
                 className={`absolute transition-all duration-500 ease-in-out h-[calc(100%-8px)] w-[calc(50%-4px)] ${themeClasses.button} rounded-lg`}
-                style={{
-                  transform: `translateX(${isLogin ? '4px' : 'calc(100% + 4px)'})`
-                }}
+                style={{ transform: `translateX(${isLogin ? '4px' : 'calc(100% + 4px)'})` }}
               />
-              
-              {/* Login Button */}
               <button
                 type="button"
-                onClick={() => setIsLogin(true)}
-                className={`relative flex-1 py-2 px-4 text-sm font-medium rounded-lg transition-colors duration-300 ${
-                  isLogin
-                    ? 'text-white'
-                    : `${themeClasses.subtitle} hover:${themeClasses.text}`
-                }`}
+                onClick={() => handleAuthModeChange(true)}
+                className={`relative flex-1 py-2 px-4 text-sm font-medium rounded-lg transition-colors duration-300 ${isLogin ? 'text-white' : `${themeClasses.subtitle} hover:${themeClasses.text}`}`}
               >
-                <span className={`transition-transform duration-300 ${isLogin ? 'scale-110' : 'scale-100'}`}>
-                  Login
-                </span>
+                <span className={`transition-transform duration-300 ${isLogin ? 'scale-110' : 'scale-100'}`}>Login</span>
               </button>
-
-              {/* Sign Up Button */}
               <button
                 type="button"
-                onClick={() => setIsLogin(false)}
-                className={`relative flex-1 py-2 px-4 text-sm font-medium rounded-lg transition-colors duration-300 ${
-                  !isLogin
-                    ? 'text-white'
-                    : `${themeClasses.subtitle} hover:${themeClasses.text}`
-                }`}
+                onClick={() => handleAuthModeChange(false)}
+                className={`relative flex-1 py-2 px-4 text-sm font-medium rounded-lg transition-colors duration-300 ${!isLogin ? 'text-white' : `${themeClasses.subtitle} hover:${themeClasses.text}`}`}
               >
-                <span className={`transition-transform duration-300 ${!isLogin ? 'scale-110' : 'scale-100'}`}>
-                  Sign Up
-                </span>
+                <span className={`transition-transform duration-300 ${!isLogin ? 'scale-110' : 'scale-100'}`}>Sign Up</span>
               </button>
             </div>
 
@@ -247,9 +264,7 @@ const AuthPage = () => {
             <div className="space-y-4">
               {!isLogin && (
                 <div>
-                  <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
-                    Full Name
-                  </label>
+                  <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>Full Name</label>
                   <div className="relative">
                     <User className={`absolute left-3 top-3 w-5 h-5 ${themeClasses.subtitle}`} />
                     <input
@@ -265,11 +280,8 @@ const AuthPage = () => {
                   </div>
                 </div>
               )}
-
               <div>
-                <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
-                  Email Address
-                </label>
+                <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>Email Address</label>
                 <div className="relative">
                   <Mail className={`absolute left-3 top-3 w-5 h-5 ${themeClasses.subtitle}`} />
                   <input
@@ -284,11 +296,8 @@ const AuthPage = () => {
                   />
                 </div>
               </div>
-
               <div>
-                <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
-                  Password
-                </label>
+                <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>Password</label>
                 <div className="relative">
                   <Lock className={`absolute left-3 top-3 w-5 h-5 ${themeClasses.subtitle}`} />
                   <input
@@ -303,7 +312,7 @@ const AuthPage = () => {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => setShowPassword(prev => !prev)}
                     className={`absolute right-3 top-3 ${themeClasses.subtitle} hover:${themeClasses.text} transition-colors duration-200`}
                     tabIndex={-1}
                   >
@@ -311,12 +320,9 @@ const AuthPage = () => {
                   </button>
                 </div>
               </div>
-
               {!isLogin && (
                 <div>
-                  <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
-                    Confirm Password
-                  </label>
+                  <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>Confirm Password</label>
                   <div className="relative">
                     <Lock className={`absolute left-3 top-3 w-5 h-5 ${themeClasses.subtitle}`} />
                     <input
@@ -332,26 +338,27 @@ const AuthPage = () => {
                   </div>
                 </div>
               )}
-
               {isLogin && (
                 <div className="text-right">
-                  <button
-                    type="button"
-                    className={`text-sm ${themeClasses.accent} hover:underline transition-all duration-200`}
-                  >
+                  <button type="button" className={`text-sm ${themeClasses.accent} hover:underline transition-all duration-200`}>
                     Forgot password?
                   </button>
                 </div>
               )}
             </div>
+            
+            {/* Error Message Display */}
+            {error && (
+                <p className="text-red-400 text-xs text-center mt-4 bg-red-500/10 p-2 rounded-lg">
+                    {error}
+                </p>
+            )}
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full mt-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-30 ${themeClasses.button} ${
-                isLoading ? 'opacity-75 cursor-not-allowed' : ''
-              }`}
+              className={`w-full mt-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-30 ${themeClasses.button} ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
             >
               <span className="flex items-center justify-center space-x-2">
                 {isLoading ? (
@@ -360,9 +367,7 @@ const AuthPage = () => {
                     <span>Please wait...</span>
                   </>
                 ) : (
-                  <>
-                    <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
-                  </>
+                  <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
                 )}
               </span>
             </button>
@@ -379,9 +384,7 @@ const AuthPage = () => {
               type="button"
               onClick={handleGoogleAuth}
               disabled={isLoading}
-              className={`w-full flex items-center justify-center space-x-3 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-gray-500 focus:ring-opacity-30 ${themeClasses.googleButton} ${
-                isLoading ? 'opacity-75 cursor-not-allowed' : ''
-              }`}
+              className={`w-full flex items-center justify-center space-x-3 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-gray-500 focus:ring-opacity-30 ${themeClasses.googleButton} ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
             >
               <img 
                 src="/Image/Google_icon.svg" 
@@ -392,7 +395,6 @@ const AuthPage = () => {
               <span>Continue with Google</span>
             </button>
           </form>
-
         </div>
       </div>
 
