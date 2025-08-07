@@ -3,22 +3,36 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 const GlowOcean = ({ isDark }: { isDark: boolean }) => {
-  const orientationRef = useRef<{ gamma: number; beta: number }>({ gamma: 0, beta: 0 });
+  const orientationRef = useRef<{ gamma: number; beta: number }>({
+    gamma: 0,
+    beta: 0,
+  });
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const timeRef = useRef(0);
 
   const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
-    orientationRef.current.gamma = event.gamma ? Math.max(Math.min(event.gamma, 45), -45) : 0;
-    orientationRef.current.beta = event.beta ? Math.max(Math.min(event.beta, 45), -45) : 0;
+    orientationRef.current.gamma = event.gamma
+      ? Math.max(Math.min(event.gamma, 45), -45)
+      : 0;
+    orientationRef.current.beta = event.beta
+      ? Math.max(Math.min(event.beta, 45), -45)
+      : 0;
   }, []);
 
   useEffect(() => {
     async function requestPermission() {
-      if (typeof DeviceMotionEvent !== 'undefined' && typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+      if (
+        typeof DeviceMotionEvent !== 'undefined' &&
+        typeof (DeviceMotionEvent as any).requestPermission === 'function'
+      ) {
         try {
           const response = await (DeviceMotionEvent as any).requestPermission();
           if (response === 'granted') {
-            window.addEventListener('deviceorientation', handleOrientation, true);
+            window.addEventListener(
+              'deviceorientation',
+              handleOrientation,
+              true
+            );
           }
         } catch (error) {
           console.error('Permission denied for device motion.', error);
@@ -41,8 +55,12 @@ const GlowOcean = ({ isDark }: { isDark: boolean }) => {
     const animate = () => {
       timeRef.current += 0.02;
 
-      const gammaWave = Math.sin(timeRef.current) * 10 + (orientationRef.current.gamma / 45) * 15;
-      const betaWave = Math.cos(timeRef.current * 1.5) * 5 + (orientationRef.current.beta / 45) * 10;
+      const gammaWave =
+        Math.sin(timeRef.current) * 10 +
+        (orientationRef.current.gamma / 45) * 15;
+      const betaWave =
+        Math.cos(timeRef.current * 1.5) * 5 +
+        (orientationRef.current.beta / 45) * 10;
 
       setOffset({
         x: gammaWave,

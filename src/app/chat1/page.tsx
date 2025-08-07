@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, FormEvent } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import {
   Menu,
   X,
@@ -13,7 +13,7 @@ import {
   SendHorizontal,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useFirebase } from '../firebaseContext';
+import app from '../../firebaseConfig';
 
 type Message = {
   id: number;
@@ -35,7 +35,7 @@ export default function AIChat() {
   const [input, setInput] = useState('');
   const router = useRouter();
 
-  const { auth } = useFirebase();
+  const auth = getAuth(app);
 
   // Resets the chat to its initial state
   const startNewChat = useCallback(() => {
@@ -44,7 +44,7 @@ export default function AIChat() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, firebaseUser => {
       setUser(firebaseUser);
       // Start with a clean slate when user logs in
       if (firebaseUser) {
@@ -74,10 +74,10 @@ export default function AIChat() {
         text: 'This is a placeholder AI response.', // Placeholder
       };
 
-      setMessages((prevMessages) => [...prevMessages, userMessage, aiResponse]);
+      setMessages(prevMessages => [...prevMessages, userMessage, aiResponse]);
       setInput('');
     },
-    [input],
+    [input]
   );
 
   // A derived state to determine if the welcome screen should be shown
@@ -93,7 +93,10 @@ export default function AIChat() {
       >
         <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
           <h2 className="text-xl font-semibold">History</h2>
-          <button onClick={() => setDrawerOpen(false)} className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700">
+          <button
+            onClick={() => setDrawerOpen(false)}
+            className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
             <X size={22} />
           </button>
         </div>
@@ -115,12 +118,13 @@ export default function AIChat() {
               Past Chats
             </p>
             <ul className="space-y-1">
-              {['Example Chat 1', 'Example Chat 2'].map((chatName) => (
+              {['Example Chat 1', 'Example Chat 2'].map(chatName => (
                 <li
                   key={chatName}
                   className="flex items-center gap-3 p-2.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer text-sm"
                 >
-                  <MessageSquare size={16} className="text-slate-500" /> {chatName}
+                  <MessageSquare size={16} className="text-slate-500" />{' '}
+                  {chatName}
                 </li>
               ))}
             </ul>
@@ -128,12 +132,12 @@ export default function AIChat() {
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-200 dark:border-slate-700">
-            <button
-              onClick={() => router.push('/ai-customize')}
-              className="flex w-full items-center gap-3 p-2.5 rounded-lg text-sm bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-            >
-              <Settings size={18} /> AI Customize
-            </button>
+          <button
+            onClick={() => router.push('/ai-customize')}
+            className="flex w-full items-center gap-3 p-2.5 rounded-lg text-sm bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+          >
+            <Settings size={18} /> AI Customize
+          </button>
         </div>
       </div>
 
@@ -142,7 +146,10 @@ export default function AIChat() {
         {/* Top Bar */}
         <header className="flex items-center justify-between p-3 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
           <div className="flex items-center gap-2">
-            <button onClick={() => setDrawerOpen(true)} className="p-2 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="p-2 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700"
+            >
               <Menu size={22} />
             </button>
             <button
@@ -162,26 +169,28 @@ export default function AIChat() {
           {showWelcomeScreen ? (
             <div className="flex-1 flex flex-col justify-center items-center text-center h-full">
               <div className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full inline-block mb-6">
-                 <Sparkles size={40} className="text-white" />
+                <Sparkles size={40} className="text-white" />
               </div>
               <h2 className="text-3xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-slate-700 to-slate-500 dark:from-slate-200 dark:to-slate-400">
                 Welcome, {user?.displayName || 'there'}!
               </h2>
-              <p className="text-slate-500 dark:text-slate-400 mb-8">How can I help you today?</p>
+              <p className="text-slate-500 dark:text-slate-400 mb-8">
+                How can I help you today?
+              </p>
               <div className="flex flex-wrap justify-center gap-3">
-                {suggestionPrompts.map((prompt) => (
-                    <button
-                        key={prompt}
-                        onClick={() => setInput(prompt)}
-                        className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    >
-                        {prompt}
-                    </button>
+                {suggestionPrompts.map(prompt => (
+                  <button
+                    key={prompt}
+                    onClick={() => setInput(prompt)}
+                    className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    {prompt}
+                  </button>
                 ))}
               </div>
             </div>
           ) : (
-            messages.map((msg) => (
+            messages.map(msg => (
               <div
                 key={msg.id}
                 className={`max-w-[80%] p-4 rounded-2xl ${
@@ -198,23 +207,26 @@ export default function AIChat() {
 
         {/* Input Area */}
         <footer className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-            <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto flex items-center gap-3">
-                <input
-                    type="text"
-                    placeholder="Message AI Chat..."
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    className="flex-1 py-2.5 px-4 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                    type="submit"
-                    className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
-                    disabled={!input.trim()}
-                    aria-label="Send message"
-                >
-                    <SendHorizontal size={20} />
-                </button>
-            </form>
+          <form
+            onSubmit={handleSendMessage}
+            className="max-w-3xl mx-auto flex items-center gap-3"
+          >
+            <input
+              type="text"
+              placeholder="Message AI Chat..."
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              className="flex-1 py-2.5 px-4 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
+              disabled={!input.trim()}
+              aria-label="Send message"
+            >
+              <SendHorizontal size={20} />
+            </button>
+          </form>
         </footer>
       </div>
     </div>

@@ -1,40 +1,33 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sun, Moon, User as UserIcon, LogOut, X, Sparkles } from 'lucide-react';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { useFirebase } from '../firebaseContext';
+import { signOut, User } from 'firebase/auth';
+import { FirebaseProvider, useFirebase } from '../firebaseContext';
 
-type FloatingBall = {
-  id: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  opacity: number;
-};
-
+// --- مكون GlowMotion كما هو ---
 const GlowMotion = ({ isDark }: { isDark: boolean }) => {
-  const orientationRef = useRef<{ gamma: number; beta: number }>({ gamma: 0, beta: 0 });
-
-  const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
-    orientationRef.current.gamma = event.gamma ?? 0;
-    orientationRef.current.beta = event.beta ?? 0;
-  }, []);
+  const [orientation, setOrientation] = useState({ gamma: 0, beta: 0 });
 
   useEffect(() => {
+    function handleOrientation(event: DeviceOrientationEvent) {
+      setOrientation({
+        gamma: event.gamma || 0,
+        beta: event.beta || 0,
+      });
+    }
     window.addEventListener('deviceorientation', handleOrientation);
-    return () => window.removeEventListener('deviceorientation', handleOrientation);
-  }, [handleOrientation]);
+    return () =>
+      window.removeEventListener('deviceorientation', handleOrientation);
+  }, []);
 
   return (
     <>
       <div
         className={`absolute w-[40rem] h-[40rem] ${isDark ? 'bg-purple-500/30' : 'bg-purple-400/20'} rounded-full blur-[100px] animate-pulse pointer-events-none transition-all duration-500`}
         style={{
-          transform: `translate(${orientationRef.current.gamma}px, ${orientationRef.current.beta}px)`,
+          transform: `translate(${orientation.gamma}px, ${orientation.beta}px)`,
           top: '-10%',
           left: '-10%',
         }}
@@ -42,7 +35,7 @@ const GlowMotion = ({ isDark }: { isDark: boolean }) => {
       <div
         className={`absolute w-[35rem] h-[35rem] ${isDark ? 'bg-blue-500/20' : 'bg-blue-400/20'} rounded-full blur-[100px] animate-pulse pointer-events-none transition-all duration-500`}
         style={{
-          transform: `translate(${-orientationRef.current.gamma}px, ${-orientationRef.current.beta}px)`,
+          transform: `translate(${-orientation.gamma}px, ${-orientation.beta}px)`,
           bottom: '-10%',
           right: '-10%',
         }}
@@ -51,72 +44,90 @@ const GlowMotion = ({ isDark }: { isDark: boolean }) => {
   );
 };
 
-const MainPage = () => {
+// --- مكون MainPage بدون تغيير في المنطق الأساسي ---
+const MainPageContent = () => {
   const router = useRouter();
-
   const [isDark, setIsDark] = useState(true);
-  const typewriterTexts = useMemo(() => ['AI Chat', 'AI Image', 'AI Upscale Image', 'AI Code', 'AI Character', 'AI Voice'], []);
+  const typewriterTexts = [
+    'AI Chat',
+    'AI Image',
+    'AI Upscale Image',
+    'AI Code',
+    'AI Character',
+    'AI Voice',
+  ];
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const [currentText, setCurrentText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [showCursor, setShowCursor] = useState(true);
-
-  const [user, setUser] = useState<User | null>(null);
-  const [greeting, setGreeting] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const { auth } = useFirebase();
+  const [user, setUser] = useState<User | null>(null);
+
   useEffect(() => {
-    const fullText = typewriterTexts[currentTextIndex];
+    if (auth) {
+      const unsubscribe = auth.onAuthStateChanged(user => {
+        setUser(user);
+      });
+      return () => unsubscribe();
+    }
+  }, [auth]);
+
+  // تايب رايتر
+  useEffect(() => {
     let typingTimeout: NodeJS.Timeout;
+    const fullText = typewriterTexts[currentTextIndex];
 
     if (!isDeleting && currentText.length < fullText.length) {
       typingTimeout = setTimeout(() => {
         setCurrentText(fullText.slice(0, currentText.length + 1));
-      }, 100);
+      }, 80);
     } else if (isDeleting && currentText.length > 0) {
       typingTimeout = setTimeout(() => {
         setCurrentText(fullText.slice(0, currentText.length - 1));
       }, 50);
     } else {
-      if (!isDeleting) {
-        typingTimeout = setTimeout(() => setIsDeleting(true), 2000);
-      } else {
-        typingTimeout = setTimeout(() => {
+      typingTimeout = setTimeout(() => {
+        if (!isDeleting) {
+          setIsDeleting(true);
+        } else {
           setIsDeleting(false);
-          setCurrentTextIndex((prev) => (prev + 1) % typewriterTexts.length);
-        }, 500);
-      }
+          setCurrentTextIndex(prev => (prev + 1) % typewriterTexts.length);
+        }
+      }, 700);
     }
-
     return () => clearTimeout(typingTimeout);
   }, [currentText, isDeleting, currentTextIndex, typewriterTexts]);
 
+  // Cursor blink
   useEffect(() => {
-    const cursorInterval = setInterval(() => setShowCursor((prev) => !prev), 500);
+    const cursorInterval = setInterval(() => {
+      setShowCursor(prev => !prev);
+    }, 500);
     return () => clearInterval(cursorInterval);
   }, []);
 
-  const { auth } = useFirebase();
-
+  // تحية حسب الوقت
+  const [greeting, setGreeting] = useState('');
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => setUser(firebaseUser));
-
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Good Morning');
     else if (hour < 18) setGreeting('Good Afternoon');
     else setGreeting('Good Evening');
+  }, []);
 
-    return unsubscribe;
-  }, [auth]);
+  const handleDrawerToggle = () => {
+    setDrawerOpen(!drawerOpen);
+  };
 
-  const handleDrawerToggle = () => setDrawerOpen((prev) => !prev);
-
-  const handleSignOut = useCallback(async () => {
+  const handleSignOut = async () => {
+    if (!auth) return;
     await signOut(auth);
     router.push('/login');
-  }, [auth, router]);
+  };
 
-  const themeClasses = useMemo(() => ({
+  const themeClasses = {
     background: isDark
       ? 'bg-gradient-to-br from-gray-950 via-gray-900 to-purple-950'
       : 'bg-gradient-to-br from-gray-50 via-white to-purple-50',
@@ -126,11 +137,14 @@ const MainPage = () => {
     card: isDark
       ? 'bg-gray-900/50 backdrop-blur-lg border border-gray-800'
       : 'bg-white/80 backdrop-blur-lg border border-gray-100',
-    button: 'bg-gradient-to-r from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800 text-white shadow-lg shadow-purple-500/25 transition-all duration-300',
-  }), [isDark]);
+    button:
+      'bg-gradient-to-r from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800 text-white shadow-lg shadow-purple-500/25 transition-all duration-300',
+  };
 
   return (
     <div className={`min-h-screen w-full relative ${themeClasses.background}`}>
+      {/* المحتوى هنا كما في كودك الأصلي */}
+      {/* ... نفس باقي الكود */}
       <div className="relative overflow-hidden">
         <GlowMotion isDark={isDark} />
 
@@ -138,13 +152,14 @@ const MainPage = () => {
           <div className="flex justify-between items-center max-w-7xl mx-auto">
             <div className="flex items-center gap-2">
               <Sparkles className="text-purple-500" size={24} />
-              <span className={`text-xl font-bold ${themeClasses.text}`}>GenixAI</span>
+              <span className={`text-xl font-bold ${themeClasses.text}`}>
+                GenixAI
+              </span>
             </div>
             <button
               onClick={handleDrawerToggle}
               className={`p-2 rounded-full ${themeClasses.card} hover:scale-105 transition-transform`}
               aria-label="Account Menu"
-              type="button"
             >
               <UserIcon size={20} className={themeClasses.text} />
             </button>
@@ -160,15 +175,23 @@ const MainPage = () => {
                 </span>
               </h1>
               {user && (
-                <p className={`text-2xl font-medium mb-4 ${themeClasses.accent}`}>
-                  {greeting}, {user.displayName ?? 'User'}!
+                <p
+                  className={`text-2xl font-medium mb-4 ${themeClasses.accent}`}
+                >
+                  {greeting}, {user.displayName || 'User'}!
                 </p>
               )}
-              <p className={`text-xl ${themeClasses.subtitle} max-w-2xl mx-auto`}>
+              <p
+                className={`text-xl ${themeClasses.subtitle} max-w-2xl mx-auto`}
+              >
                 Unlock{' '}
                 <span className={`font-semibold ${themeClasses.accent}`}>
                   {currentText}
-                  <span className={`${showCursor ? 'opacity-100' : 'opacity-0'}`}>|</span>
+                  <span
+                    className={`${showCursor ? 'opacity-100' : 'opacity-0'}`}
+                  >
+                    |
+                  </span>
                 </span>
               </p>
             </div>
@@ -177,7 +200,8 @@ const MainPage = () => {
               {[
                 {
                   title: 'AI Chat',
-                  description: 'Engage in natural conversations with advanced AI',
+                  description:
+                    'Engage in natural conversations with advanced AI',
                   path: '/chat1',
                   icon: '🤖',
                 },
@@ -208,23 +232,18 @@ const MainPage = () => {
               ].map(({ title, description, path, icon }) => (
                 <div
                   key={title}
-                  role="button"
-                  tabIndex={0}
                   onClick={() => path !== '#' && router.push(path)}
-                  onKeyDown={(e) => {
-                    if ((e.key === 'Enter' || e.key === ' ') && path !== '#') router.push(path);
-                  }}
                   className={`${themeClasses.card} p-6 rounded-2xl cursor-pointer group hover:scale-[1.02] transition-all duration-300`}
                 >
-                  <div className="text-3xl mb-4" aria-hidden="true">
-                    {icon}
-                  </div>
+                  <div className="text-3xl mb-4">{icon}</div>
                   <h3
                     className={`text-xl font-semibold mb-2 ${themeClasses.text} group-hover:text-purple-500 transition-colors`}
                   >
                     {title}
                   </h3>
-                  <p className={`${themeClasses.subtitle} text-sm`}>{description}</p>
+                  <p className={`${themeClasses.subtitle} text-sm`}>
+                    {description}
+                  </p>
                 </div>
               ))}
             </div>
@@ -232,6 +251,7 @@ const MainPage = () => {
         </div>
       </div>
 
+      {/* Drawer */}
       <div
         className={`fixed top-0 right-0 h-full w-64 bg-white dark:bg-gray-900 shadow-xl z-50 transform transition-transform duration-300 ${
           drawerOpen ? 'translate-x-0' : 'translate-x-full'
@@ -243,7 +263,6 @@ const MainPage = () => {
             onClick={() => setDrawerOpen(false)}
             aria-label="Close Drawer"
             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-            type="button"
           >
             <X size={22} />
           </button>
@@ -252,11 +271,12 @@ const MainPage = () => {
         <div className="p-4 flex flex-col gap-4">
           {user ? (
             <>
-              <p className="text-gray-800 dark:text-gray-200 font-semibold">{user.displayName ?? 'User'}</p>
+              <p className="text-gray-800 dark:text-gray-200 font-semibold">
+                {user.displayName || 'User'}
+              </p>
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
-                type="button"
               >
                 <LogOut size={18} /> Sign Out
               </button>
@@ -266,7 +286,6 @@ const MainPage = () => {
                   setDrawerOpen(false);
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition"
-                type="button"
               >
                 <UserIcon size={18} /> Profile
               </button>
@@ -278,7 +297,6 @@ const MainPage = () => {
                 setDrawerOpen(false);
               }}
               className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition"
-              type="button"
             >
               Login
             </button>
@@ -286,7 +304,6 @@ const MainPage = () => {
           <button
             onClick={() => setIsDark(!isDark)}
             className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
-            type="button"
           >
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
             {isDark ? 'Light Mode' : 'Dark Mode'}
@@ -296,5 +313,13 @@ const MainPage = () => {
     </div>
   );
 };
+
+// --- ملف main يكون لفاف لProvider ---
+// نفذ هذا في ملف مثل page.tsx أو app/layout.tsx حسب مشروعك:
+const MainPage = () => (
+  <FirebaseProvider>
+    <MainPageContent />
+  </FirebaseProvider>
+);
 
 export default MainPage;

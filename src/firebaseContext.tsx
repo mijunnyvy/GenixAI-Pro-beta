@@ -1,6 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 
@@ -17,13 +23,15 @@ type FirebaseContextType = {
   user: User | null;
 };
 
-const FirebaseContext = createContext<FirebaseContextType | undefined>(undefined);
+const FirebaseContext = createContext<FirebaseContextType | undefined>(
+  undefined
+);
 
 export const FirebaseProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, firebaseUser => {
       setUser(firebaseUser);
     });
     return () => unsubscribe();
