@@ -3,16 +3,16 @@
 import React, { useState, useEffect, useCallback, FormEvent } from 'react';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import {
-  Menu,
-  X,
   Plus,
-  Settings,
+  X,
   MessageSquare,
-  Sparkles,
-  SendHorizontal,
-  Search,
-  LogOut,
+  History,
+  Video,
+  Play,
+  Mic,
+  Database,
   User as UserIcon,
+  Search,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import app from '../../firebaseConfig';
@@ -25,15 +25,30 @@ type Message = {
 
 // Suggestion chips for the welcome screen
 const suggestionPrompts = [
-  'Explain quantum computing in simple terms',
-  'What are three tips for a healthy diet?',
-  'Write a short story about a robot who discovers music',
+  {
+    icon: <Play size={20} />,
+    title: 'Generate True 4K Next-Gen Videos',
+    prompt: 'Generate a true 4K next-gen video about a futuristic city at sunset.',
+  },
+  {
+    icon: <Mic size={20} />,
+    title: 'Generate Voiceovers, Music, or Sound Effects',
+    prompt: 'Generate a voiceover for a sci-fi documentary.',
+  },
+  {
+    icon: <Database size={20} />,
+    title: 'Interact with the Smartest Data Bot Ever',
+    prompt: 'Analyze this dataset and give me key insights.',
+  },
 ];
+
+const chatTabs = ['General', 'Text', 'Media', 'Music', 'Analytics'];
 
 export default function AIChat() {
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [activeTab, setActiveTab] = useState(chatTabs[0]);
   const router = useRouter();
 
   const auth = getAuth(app);
@@ -74,7 +89,7 @@ export default function AIChat() {
       const aiResponse: Message = {
         id: Date.now() + 1,
         sender: 'ai',
-        text: 'This is a placeholder AI response.', // Placeholder
+        text: `You asked: "${input}". This is a placeholder AI response.`, // Placeholder
       };
 
       setMessages(prevMessages => [...prevMessages, userMessage, aiResponse]);
@@ -87,186 +102,143 @@ export default function AIChat() {
   const showWelcomeScreen = messages.length === 0;
 
   return (
-    <div className="flex h-screen bg-[#F5F7FA] dark:bg-slate-900 text-slate-900 dark:text-slate-50">
+    <div className="flex h-screen bg-[#FDFEFE] dark:bg-gray-900 text-gray-900 dark:text-gray-50 overflow-hidden relative">
       {/* --- Sidebar --- */}
-      <aside className="w-[300px] flex-shrink-0 bg-white dark:bg-[#1A202C] border-r border-slate-200 dark:border-slate-800 flex flex-col p-4">
-        <div className="flex items-center gap-2 mb-6">
-          <h1 className="text-xl font-bold">CHAT A.I.+</h1>
-        </div>
-
-        {/* New Chat Button and Search */}
-        <div className="space-y-4 mb-8">
+      <aside className="w-20 flex-shrink-0 bg-white dark:bg-gray-950 border-r border-gray-100 dark:border-gray-800 flex flex-col items-center justify-between py-6 z-20">
+        <div className="flex flex-col items-center space-y-6">
+          <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-full">
+            <X size={24} className="text-purple-600 dark:text-purple-400" />
+          </div>
           <button
             onClick={startNewChat}
-            className="flex w-full items-center gap-2.5 justify-start px-3 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
+            className="p-3 bg-purple-600 rounded-full text-white hover:bg-purple-700 transition-colors"
+            aria-label="New chat"
           >
-            <Plus size={18} /> New chat
+            <Plus size={24} />
           </button>
-          <div className="relative">
-            <Search
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              type="text"
-              placeholder="Search chat"
-              className="w-full pl-10 pr-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
+          <div className="flex flex-col items-center space-y-4 pt-4">
+            <button className="p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <History size={24} className="text-gray-500" />
+            </button>
+            <button className="p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <MessageSquare size={24} className="text-gray-500" />
+            </button>
+            <button className="p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <Video size={24} className="text-gray-500" />
+            </button>
           </div>
         </div>
-
-        {/* Chat History and other links */}
-        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-          <ul className="space-y-1">
-            {[
-              'Create Intem Game Environment',
-              'Apply To Leave For Emergency',
-              'What is UI/UX Design?',
-              'Create POS System',
-              'What is UX Audit',
-              'Create Chatbot GPT...',
-              'How Chat GPT Work?',
-              'Last 7 Days',
-              'Cryptic Landing App Name',
-              'Obatator Grammer Types',
-              'Min 3000 Pcs To Get Discount',
-            ].map((chatName, index) => (
-              <li key={index}>
-                <a
-                  href="#"
-                  className={`flex items-center gap-3 p-2.5 rounded-md text-sm transition-colors ${
-                    chatName === 'Create Chatbot GPT...'
-                      ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 font-semibold'
-                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <MessageSquare
-                    size={16}
-                    className={
-                      chatName === 'Create Chatbot GPT...'
-                        ? 'text-blue-600 dark:text-blue-300'
-                        : 'text-slate-500'
-                    }
-                  />
-                  {chatName}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Bottom Navigation */}
-        <div className="mt-auto pt-4 border-t border-slate-200 dark:border-slate-800">
-          <ul className="space-y-1">
-            <li>
-              <a
-                href="#"
-                className="flex items-center gap-3 p-2.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm"
-              >
-                <Settings size={18} className="text-slate-500" />
-                Settings
-              </a>
-            </li>
-            <li>
-              <a
-                href="#"
-                className="flex items-center gap-3 p-2.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm"
-              >
-                <UserIcon size={18} className="text-slate-500" />
-                Andrew Nielson
-              </a>
-            </li>
-            <li>
-              <a
-                href="#"
-                className="flex items-center gap-3 p-2.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm text-red-500"
-              >
-                <LogOut size={18} className="text-red-500" />
-                Logout
-              </a>
-            </li>
-          </ul>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-10 h-10 rounded-full overflow-hidden">
+            {user?.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt="User avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                <UserIcon size={24} className="text-gray-400" />
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 
       {/* --- Main Chat Area --- */}
-      <div className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Upgrade Sidebar */}
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 transform rotate-90 origin-bottom-right p-2.5 bg-blue-600 text-white rounded-t-lg z-10 cursor-pointer">
-          <span className="font-semibold text-xs whitespace-nowrap">
-            Upgrade to Pro
-          </span>
-        </div>
-
-        {/* Messages */}
-        <main className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+      <div className="flex-1 flex flex-col relative overflow-hidden bg-gradient-to-r from-purple-50 to-white dark:from-gray-900 dark:to-gray-950">
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
           {showWelcomeScreen ? (
-            <div className="flex-1 flex flex-col justify-center items-center text-center h-full max-w-2xl mx-auto">
-              <div className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full inline-block mb-6">
-                <Sparkles size={40} className="text-white" />
+            <div className="flex flex-col items-center text-center h-full max-w-4xl mx-auto py-12">
+              <div
+                className="w-32 h-32 rounded-full mb-8 bg-gradient-to-br from-purple-500 to-pink-500 blur-md opacity-70 animate-pulse"
+              />
+              <div className="text-4xl font-semibold mb-2 text-purple-900 dark:text-purple-50">
+                Hi there, {user?.displayName || 'Sam'}
               </div>
-              <h2 className="text-3xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-slate-700 to-slate-500 dark:from-slate-200 dark:to-slate-400">
-                Welcome, {user?.displayName || 'there'}!
-              </h2>
-              <p className="text-slate-500 dark:text-slate-400 mb-8">
+              <p className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-12">
                 How can I help you today?
               </p>
-              <div className="flex flex-wrap justify-center gap-3">
-                {suggestionPrompts.map(prompt => (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl">
+                {suggestionPrompts.map((item, index) => (
                   <button
-                    key={prompt}
-                    onClick={() => setInput(prompt)}
-                    className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    key={index}
+                    onClick={() => setInput(item.prompt)}
+                    className="flex flex-col items-center text-center p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
-                    {prompt}
+                    <div className="p-3 mb-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                      {item.icon}
+                    </div>
+                    <span className="text-sm font-semibold">{item.title}</span>
                   </button>
                 ))}
               </div>
             </div>
           ) : (
-            messages.map(msg => (
-              <div
-                key={msg.id}
-                className={`flex ${
-                  msg.sender === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
+            // Chat History View
+            <div className="space-y-6 max-w-4xl mx-auto">
+              {messages.map(msg => (
                 <div
-                  className={`max-w-[70%] p-4 rounded-2xl ${
-                    msg.sender === 'user'
-                      ? 'bg-blue-600 text-white rounded-br-lg'
-                      : 'bg-white dark:bg-[#1C2635] text-slate-800 dark:text-slate-200 rounded-bl-lg shadow-sm'
+                  key={msg.id}
+                  className={`flex ${
+                    msg.sender === 'user' ? 'justify-end' : 'justify-start'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                  <div
+                    className={`max-w-[70%] p-4 rounded-3xl ${
+                      msg.sender === 'user'
+                        ? 'bg-purple-600 text-white rounded-br-none'
+                        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-none shadow-md'
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
-        </main>
+        </div>
 
-        {/* Input Area */}
-        <footer className="p-6">
-          <form
-            onSubmit={handleSendMessage}
-            className="max-w-4xl mx-auto flex items-center bg-white dark:bg-[#1C2635] rounded-xl shadow-lg border border-slate-200 dark:border-slate-800"
-          >
-            <input
-              type="text"
-              placeholder="Message AI Chat..."
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              className="flex-1 py-4 px-6 bg-transparent rounded-l-xl focus:outline-none"
-            />
-            <button
-              type="submit"
-              className="p-4 bg-blue-600 text-white rounded-r-xl hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
-              disabled={!input.trim()}
-              aria-label="Send message"
+        {/* --- Input Area --- */}
+        <footer className="p-8 pt-0">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex justify-center space-x-6 text-gray-500 dark:text-gray-400 mb-4 text-sm font-medium">
+              {chatTabs.map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`relative pb-1 ${
+                    activeTab === tab
+                      ? 'text-purple-600 dark:text-purple-400 font-semibold after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-purple-600 after:rounded-full'
+                      : 'hover:text-purple-600 transition-colors'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <form
+              onSubmit={handleSendMessage}
+              className="relative flex items-center bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700"
             >
-              <SendHorizontal size={20} />
-            </button>
-          </form>
+              <input
+                type="text"
+                placeholder="Ask me anything..."
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                className="flex-1 py-4 px-6 bg-transparent rounded-full focus:outline-none placeholder-gray-400"
+              />
+              <button
+                type="submit"
+                className="p-3 bg-purple-600 text-white rounded-full m-1 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                disabled={!input.trim()}
+                aria-label="Send message"
+              >
+                <Search size={20} />
+              </button>
+            </form>
+          </div>
         </footer>
       </div>
     </div>
