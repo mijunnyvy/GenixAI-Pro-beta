@@ -1,17 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo, FormEvent } from 'react';
-import { 
-    getAuth, 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
-    GoogleAuthProvider, 
-    signInWithPopup,
-    AuthError
-} from 'firebase/auth';
+import React, { useState, useEffect, useCallback, FormEvent } from 'react';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, AuthError } from 'firebase/auth';
 import { Sun, Moon, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import app from '../../firebaseConfig';
+import Image from 'next/image';
+import { useFirebase } from '../firebaseContext';
 
 // Type definition for the floating balls animation
 type FloatingBall = {
@@ -45,8 +39,7 @@ const AuthPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Memoize the auth instance to prevent re-initialization on re-renders
-  const auth = useMemo(() => getAuth(app), []);
+  const { auth } = useFirebase();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -77,7 +70,7 @@ const AuthPage = () => {
 
     // Cleanup interval on component unmount
     return () => clearInterval(animationInterval);
-  }, []); // Empty dependency array is correct here because we use a callback in setBalls
+  }, []);
 
   const toggleTheme = useCallback(() => {
     setIsDark(prev => !prev);
@@ -119,7 +112,7 @@ const AuthPage = () => {
       router.push('/home');
     } catch (err: unknown) {
       const authError = err as AuthError;
-      console.error('Authentication error:', authError.message);
+      console.error('Authentication error:', authError);
       setError(authError.message || 'An unexpected error occurred.');
     } finally {
       setIsLoading(false);
@@ -135,7 +128,7 @@ const AuthPage = () => {
       router.push('/home');
     } catch (err: unknown) {
       const authError = err as AuthError;
-      console.error('Google authentication error:', authError.message);
+      console.error('Google authentication error:', authError);
       setError(authError.message || 'An unexpected error occurred.');
     } finally {
       setIsLoading(false);
@@ -386,10 +379,11 @@ const AuthPage = () => {
               disabled={isLoading}
               className={`w-full flex items-center justify-center space-x-3 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-gray-500 focus:ring-opacity-30 ${themeClasses.googleButton} ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
             >
-              <img 
+              <Image 
                 src="/Image/Google_icon.svg" 
                 alt="Google icon" 
-                className="w-6 h-6"
+                width={24}
+                height={24}
                 draggable={false}
               />
               <span>Continue with Google</span>

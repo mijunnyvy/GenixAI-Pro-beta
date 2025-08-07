@@ -1,40 +1,31 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 const GlowOcean = ({ isDark }: { isDark: boolean }) => {
-  // تخزين الميل الخام
-  const orientationRef = useRef({ gamma: 0, beta: 0 });
-
-  // موقع التحويل النهائي (pixel offset)
+  const orientationRef = useRef<{ gamma: number; beta: number }>({ gamma: 0, beta: 0 });
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-
-  // عداد الوقت للحركة التذبذبية
   const timeRef = useRef(0);
+
+  const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
+    orientationRef.current.gamma = event.gamma ? Math.max(Math.min(event.gamma, 45), -45) : 0;
+    orientationRef.current.beta = event.beta ? Math.max(Math.min(event.beta, 45), -45) : 0;
+  }, []);
 
   useEffect(() => {
     async function requestPermission() {
-      if (
-        typeof DeviceMotionEvent !== 'undefined' &&
-        typeof (DeviceMotionEvent as any).requestPermission === 'function'
-      ) {
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof (DeviceMotionEvent as any).requestPermission === 'function') {
         try {
           const response = await (DeviceMotionEvent as any).requestPermission();
           if (response === 'granted') {
             window.addEventListener('deviceorientation', handleOrientation, true);
           }
         } catch (error) {
-          console.error('Permission denied for device motion.');
+          console.error('Permission denied for device motion.', error);
         }
       } else {
-        // For browsers that do not require permission
         window.addEventListener('deviceorientation', handleOrientation, true);
       }
-    }
-
-    function handleOrientation(event: DeviceOrientationEvent) {
-      orientationRef.current.gamma = event.gamma ? Math.max(Math.min(event.gamma, 45), -45) : 0;
-      orientationRef.current.beta = event.beta ? Math.max(Math.min(event.beta, 45), -45) : 0;
     }
 
     requestPermission();
@@ -42,15 +33,14 @@ const GlowOcean = ({ isDark }: { isDark: boolean }) => {
     return () => {
       window.removeEventListener('deviceorientation', handleOrientation);
     };
-  }, []);
+  }, [handleOrientation]);
 
   useEffect(() => {
     let animationFrameId: number;
 
     const animate = () => {
-      timeRef.current += 0.02; // زيادة الوقت
+      timeRef.current += 0.02;
 
-      // نحول الميل لقيم offset مع حركة موجية (دالة sin)
       const gammaWave = Math.sin(timeRef.current) * 10 + (orientationRef.current.gamma / 45) * 15;
       const betaWave = Math.cos(timeRef.current * 1.5) * 5 + (orientationRef.current.beta / 45) * 10;
 

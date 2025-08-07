@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sun, Moon, User as UserIcon, LogOut, X, Sparkles } from 'lucide-react';
-import { getAuth, onAuthStateChanged, signOut, User } from 'firebase/auth';
-import app from '../../firebaseConfig';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { useFirebase } from '../firebaseContext';
 
 type FloatingBall = {
   id: number;
@@ -17,26 +17,24 @@ type FloatingBall = {
 };
 
 const GlowMotion = ({ isDark }: { isDark: boolean }) => {
-  const [orientation, setOrientation] = useState({ gamma: 0, beta: 0 });
+  const orientationRef = useRef<{ gamma: number; beta: number }>({ gamma: 0, beta: 0 });
+
+  const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
+    orientationRef.current.gamma = event.gamma ?? 0;
+    orientationRef.current.beta = event.beta ?? 0;
+  }, []);
 
   useEffect(() => {
-    const handleOrientation = (event: DeviceOrientationEvent) => {
-      setOrientation({
-        gamma: event.gamma ?? 0,
-        beta: event.beta ?? 0,
-      });
-    };
-
     window.addEventListener('deviceorientation', handleOrientation);
     return () => window.removeEventListener('deviceorientation', handleOrientation);
-  }, []);
+  }, [handleOrientation]);
 
   return (
     <>
       <div
         className={`absolute w-[40rem] h-[40rem] ${isDark ? 'bg-purple-500/30' : 'bg-purple-400/20'} rounded-full blur-[100px] animate-pulse pointer-events-none transition-all duration-500`}
         style={{
-          transform: `translate(${orientation.gamma}px, ${orientation.beta}px)`,
+          transform: `translate(${orientationRef.current.gamma}px, ${orientationRef.current.beta}px)`,
           top: '-10%',
           left: '-10%',
         }}
@@ -44,7 +42,7 @@ const GlowMotion = ({ isDark }: { isDark: boolean }) => {
       <div
         className={`absolute w-[35rem] h-[35rem] ${isDark ? 'bg-blue-500/20' : 'bg-blue-400/20'} rounded-full blur-[100px] animate-pulse pointer-events-none transition-all duration-500`}
         style={{
-          transform: `translate(${-orientation.gamma}px, ${-orientation.beta}px)`,
+          transform: `translate(${-orientationRef.current.gamma}px, ${-orientationRef.current.beta}px)`,
           bottom: '-10%',
           right: '-10%',
         }}
@@ -57,7 +55,7 @@ const MainPage = () => {
   const router = useRouter();
 
   const [isDark, setIsDark] = useState(true);
-  const typewriterTexts = ['AI Chat', 'AI Image', 'AI Upscale Image', 'AI Code', 'AI Character', 'AI Voice'];
+  const typewriterTexts = useMemo(() => ['AI Chat', 'AI Image', 'AI Upscale Image', 'AI Code', 'AI Character', 'AI Voice'], []);
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const [currentText, setCurrentText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -68,21 +66,27 @@ const MainPage = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
-    const typingTimeout = setTimeout(() => {
-      const fullText = typewriterTexts[currentTextIndex];
+    const fullText = typewriterTexts[currentTextIndex];
+    let typingTimeout: NodeJS.Timeout;
 
-      if (!isDeleting && currentText.length < fullText.length) {
+    if (!isDeleting && currentText.length < fullText.length) {
+      typingTimeout = setTimeout(() => {
         setCurrentText(fullText.slice(0, currentText.length + 1));
-      } else if (isDeleting && currentText.length > 0) {
+      }, 100);
+    } else if (isDeleting && currentText.length > 0) {
+      typingTimeout = setTimeout(() => {
         setCurrentText(fullText.slice(0, currentText.length - 1));
+      }, 50);
+    } else {
+      if (!isDeleting) {
+        typingTimeout = setTimeout(() => setIsDeleting(true), 2000);
       } else {
-        if (!isDeleting) setIsDeleting(true);
-        else {
+        typingTimeout = setTimeout(() => {
           setIsDeleting(false);
           setCurrentTextIndex((prev) => (prev + 1) % typewriterTexts.length);
-        }
+        }, 500);
       }
-    }, isDeleting ? 50 : 80);
+    }
 
     return () => clearTimeout(typingTimeout);
   }, [currentText, isDeleting, currentTextIndex, typewriterTexts]);
@@ -92,8 +96,9 @@ const MainPage = () => {
     return () => clearInterval(cursorInterval);
   }, []);
 
+  const { auth } = useFirebase();
+
   useEffect(() => {
-    const auth = getAuth(app);
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => setUser(firebaseUser));
 
     const hour = new Date().getHours();
@@ -102,17 +107,16 @@ const MainPage = () => {
     else setGreeting('Good Evening');
 
     return unsubscribe;
-  }, []);
+  }, [auth]);
 
   const handleDrawerToggle = () => setDrawerOpen((prev) => !prev);
 
-  const handleSignOut = async () => {
-    const auth = getAuth(app);
+  const handleSignOut = useCallback(async () => {
     await signOut(auth);
     router.push('/login');
-  };
+  }, [auth, router]);
 
-  const themeClasses = {
+  const themeClasses = useMemo(() => ({
     background: isDark
       ? 'bg-gradient-to-br from-gray-950 via-gray-900 to-purple-950'
       : 'bg-gradient-to-br from-gray-50 via-white to-purple-50',
@@ -123,7 +127,7 @@ const MainPage = () => {
       ? 'bg-gray-900/50 backdrop-blur-lg border border-gray-800'
       : 'bg-white/80 backdrop-blur-lg border border-gray-100',
     button: 'bg-gradient-to-r from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800 text-white shadow-lg shadow-purple-500/25 transition-all duration-300',
-  };
+  }), [isDark]);
 
   return (
     <div className={`min-h-screen w-full relative ${themeClasses.background}`}>

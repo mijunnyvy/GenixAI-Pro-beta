@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sun, Moon, ArrowRight, Sparkles } from 'lucide-react';
 
@@ -23,7 +23,7 @@ const GenixAILanding = () => {
   const [showCursor, setShowCursor] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
 
-  const typewriterTexts = React.useMemo(
+  const typewriterTexts = useMemo(
     () => ['AI Chat', 'AI Image', 'AI Upscale Image', 'AI Code', 'AI Character', 'AI Voice'],
     []
   );
@@ -57,27 +57,31 @@ const GenixAILanding = () => {
   }, []);
 
   useEffect(() => {
+    const fullText = typewriterTexts[currentTextIndex];
+    let typingTimeout: NodeJS.Timeout;
+
     if (isTyping) {
-      if (currentText.length < typewriterTexts[currentTextIndex].length) {
-        const timeout = setTimeout(() => {
-          setCurrentText(typewriterTexts[currentTextIndex].slice(0, currentText.length + 1));
+      if (currentText.length < fullText.length) {
+        typingTimeout = setTimeout(() => {
+          setCurrentText(fullText.slice(0, currentText.length + 1));
         }, 100);
-        return () => clearTimeout(timeout);
+      } else {
+        typingTimeout = setTimeout(() => setIsTyping(false), 2000);
       }
-      const timeout = setTimeout(() => setIsTyping(false), 2000);
-      return () => clearTimeout(timeout);
+    } else {
+      if (currentText.length > 0) {
+        typingTimeout = setTimeout(() => {
+          setCurrentText((prev) => prev.slice(0, -1));
+        }, 50);
+      } else {
+        typingTimeout = setTimeout(() => {
+          setCurrentTextIndex((prev) => (prev + 1) % typewriterTexts.length);
+          setIsTyping(true);
+        }, 500);
+      }
     }
-    if (currentText.length > 0) {
-      const timeout = setTimeout(() => {
-        setCurrentText(prev => prev.slice(0, -1));
-      }, 50);
-      return () => clearTimeout(timeout);
-    }
-    const timeout = setTimeout(() => {
-      setCurrentTextIndex((prev) => (prev + 1) % typewriterTexts.length);
-      setIsTyping(true);
-    }, 500);
-    return () => clearTimeout(timeout);
+
+    return () => clearTimeout(typingTimeout);
   }, [currentText, isTyping, currentTextIndex, typewriterTexts]);
 
   useEffect(() => {
@@ -87,15 +91,15 @@ const GenixAILanding = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const toggleTheme = () => setIsDark(prev => !prev);
+  const toggleTheme = useCallback(() => setIsDark(prev => !prev), []);
 
-  const handleGetStarted = async () => {
+  const handleGetStarted = useCallback(async () => {
     setIsNavigating(true);
     await new Promise(resolve => setTimeout(resolve, 300));
     router.push('/auth');
-  };
+  }, [router]);
 
-  const themeClasses = React.useMemo(() => ({
+  const themeClasses = useMemo(() => ({
     background: isDark
       ? 'bg-gradient-to-br from-gray-950 via-gray-900 to-purple-950'
       : 'bg-gradient-to-br from-gray-50 via-white to-purple-50',

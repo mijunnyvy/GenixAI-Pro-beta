@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, FormEvent } from 'react';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import {
   Menu,
   X,
@@ -13,7 +13,7 @@ import {
   SendHorizontal,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import app from '../../firebaseConfig';
+import { useFirebase } from '../firebaseContext';
 
 type Message = {
   id: number;
@@ -35,7 +35,7 @@ export default function AIChat() {
   const [input, setInput] = useState('');
   const router = useRouter();
 
-  const auth = getAuth(app);
+  const { auth } = useFirebase();
 
   // Resets the chat to its initial state
   const startNewChat = useCallback(() => {
